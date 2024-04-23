@@ -1,6 +1,6 @@
 {
 	"compiler": {
-		"version": "0.8.25+commit.b61c2a91"
+		"version": "0.8.24+commit.e11b9ed9"
 	},
 	"language": "Solidity",
 	"output": {
@@ -13,7 +13,7 @@
 						"type": "address"
 					},
 					{
-						"internalType": "contract IERC20",
+						"internalType": "address",
 						"name": "_tokenAddress",
 						"type": "address"
 					}
@@ -408,6 +408,19 @@
 			},
 			{
 				"inputs": [],
+				"name": "rate",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
 				"name": "renounceOwnership",
 				"outputs": [],
 				"stateMutability": "nonpayable",
@@ -705,13 +718,7 @@
 				"type": "function"
 			},
 			{
-				"inputs": [
-					{
-						"internalType": "address",
-						"name": "_addr",
-						"type": "address"
-					}
-				],
+				"inputs": [],
 				"name": "withdraw",
 				"outputs": [],
 				"stateMutability": "nonpayable",
@@ -888,7 +895,7 @@
 		"compilationTarget": {
 			"contracts/AuctionNFT.sol": "AuctionContract"
 		},
-		"evmVersion": "cancun",
+		"evmVersion": "shanghai",
 		"libraries": {},
 		"metadata": {
 			"bytecodeHash": "ipfs"
@@ -1021,11 +1028,11 @@
 			]
 		},
 		"contracts/AuctionNFT.sol": {
-			"keccak256": "0x8d5780e641acea4c8987d32d26507faae78c3ee66a68cdaba6423c722a155109",
+			"keccak256": "0x2c35e0ad335bd8c12463988594445a1b83cc505ba42f0bb616178c564c4c6a93",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://a6ac3dd4475ed75f64548aafab9d9ed3ab6131131ff213e3d6c85e6e14cd7bf3",
-				"dweb:/ipfs/QmcdeRwaSzks2zpE25sZ8UEopQ7TGvd5xScsQzcV149kPV"
+				"bzz-raw://4e3f35dc7b42e05ef652dcac2ddda1bc1215263e5e999b801c251a13df32e912",
+				"dweb:/ipfs/QmZRNk2ssMSZWpT3FHnrDNi48hRLS3UBrJVUJhR4dczqUU"
 			]
 		}
 	},

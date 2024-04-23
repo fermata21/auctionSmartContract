@@ -19,17 +19,18 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
     uint256 private auctionStartDay;
     uint256 private minBid;
     uint256 private bidIncrement;
+    uint256 public rate = 100 * 10**18;
 
     string private baseURI;
     string private contractURI;
     string private baseExtension = ".json";
 
     //Constructor, Setter, Getter
-    constructor(address initialOwner, IERC20 _tokenAddress)
+    constructor(address initialOwner, address _tokenAddress)
         ERC721("AuctionContract", "ACN")
         Ownable(initialOwner)
     {
-        tokenAddress = _tokenAddress;
+        tokenAddress = IERC20(_tokenAddress);
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
@@ -50,18 +51,27 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
 
     //Bidding functions
     function submitBid(uint256 tokenAmount) public payable {
-        bidIncrement = checkBid(tokenAmount);
-        finalBidAmount[msg.sender] = tokenAmount;
-        if (!tokenAddress.transferFrom(address(this), msg.sender, bidIncrement)) revert();
-    }
-
-    function checkBid(uint256 tokenAmount) internal returns (uint256) {
         require(auctionAvailable() == true, "The auction has ended");
-        require(tokenAmount > 0, "You cannot bid 0 token");
-        require(tokenAddress.balanceOf(msg.sender) >= tokenAmount, "You do not hold enough tokens for this transaction");
-        require(finalBidAmount[msg.sender] < tokenAmount, "This bid must be higher than you last bid");
-        if (!tokenAddress.transferFrom(msg.sender, address(this), tokenAmount)) revert();      
-        return tokenAmount - finalBidAmount[msg.sender];
+        require(rate * tokenAmount > 0, "You cannot bid 0 token");
+        require(
+            tokenAddress.balanceOf(msg.sender) >= rate * tokenAmount,
+            "You do not hold enough tokens for this transaction"
+        );
+        require(
+            finalBidAmount[msg.sender] < rate * tokenAmount,
+            "This bid must be higher than you last bid"
+        );
+        tokenAddress.approve(address(this), rate * tokenAmount);
+        if (
+            !IERC20(tokenAddress).transferFrom(
+                msg.sender,
+                address(this),
+                rate * tokenAmount
+            )
+        ) revert();
+        finalBidAmount[msg.sender] = rate * tokenAmount;
+        bidIncrement = rate * tokenAmount - finalBidAmount[msg.sender];
+        if (!tokenAddress.transfer(msg.sender, bidIncrement)) revert();
     }
 
     //Minting functions
@@ -71,10 +81,16 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
 
     function publicMint() public payable {
         require(auctionAvailable() == false, "The auction is still ongoing");
-        if (finalBidAmount[msg.sender] >= minBid) {
+        if (
+            finalBidAmount[msg.sender] >= minBid &&
+            finalBidAmount[msg.sender] != 0
+        ) {
             _safeMint(msg.sender, _nextTokenId++);
+            finalBidAmount[msg.sender] = 0;
         } else {
-            if (!tokenAddress.transferFrom(address(this), msg.sender, finalBidAmount[msg.sender])) revert();
+            if (!tokenAddress.transfer(msg.sender, finalBidAmount[msg.sender]))
+                revert();
+            finalBidAmount[msg.sender] = 0;
         }
     }
 
@@ -94,7 +110,7 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
     }
 
     function setMinBid(uint256 _minBid) external onlyOwner {
-        minBid = _minBid;
+        minBid = _minBid * rate;
     }
 
     function tokenURI(uint256 tokenId)
@@ -117,9 +133,11 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
                 : "";
     }
 
-    function withdraw(address _addr) external onlyOwner {
-        uint256 balance = address(this).balance;
-        payable(_addr).transfer(balance);
+    function withdraw() external onlyOwner {
+        IERC20(tokenAddress).transfer(
+            msg.sender,
+            tokenAddress.balanceOf(address(this))
+        );
     }
 
     // The following functions are overrides required by Solidity.

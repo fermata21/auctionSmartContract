@@ -3,6 +3,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -10,6 +11,8 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
     using Strings for uint256;
 
     mapping(address => uint256) finalBidAmount;
+
+    IERC20 public tokenAddress;
 
     uint256 private _nextTokenId;
     uint256 private daysOfAuction;
@@ -21,35 +24,57 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
     string private contractURI;
     string private baseExtension = ".json";
 
-    constructor(address initialOwner)
+    //Constructor, Setter, Getter
+    constructor(address initialOwner, IERC20 _tokenAddress)
         ERC721("AuctionContract", "ACN")
         Ownable(initialOwner)
-    {}
+    {
+        tokenAddress = _tokenAddress;
+    }
+
+    function _baseURI() internal view virtual override returns (string memory) {
+        return baseURI;
+    }
+
+    function setBaseURI() public onlyOwner {
+        baseURI = "ipfs://Qma8rLEpTpdKETstRaMFgbmiqNQjNTmi8cGFK9j9NAqYeS/";
+    }
+
+    function _contractURI() internal view virtual returns (string memory) {
+        return contractURI;
+    }
+
+    function setContractURI() public onlyOwner {
+        contractURI = "https://aqua-generous-impala-333.mypinata.cloud/ipfs/QmWaEXC1FSZ6mBciKQ4dJYuHWR8ctgnWQN3dR6trC8XUCL/contract.json";
+    }
 
     //Bidding functions
-    function submitBid() public payable {
-        bidIncrement = checkBid();
-        finalBidAmount[msg.sender] = msg.value;
-        if (!payable(msg.sender).send(msg.value - bidIncrement)) revert();
+    function submitBid(uint256 tokenAmount) public payable {
+        bidIncrement = checkBid(tokenAmount);
+        finalBidAmount[msg.sender] = tokenAmount;
+        if (!tokenAddress.transferFrom(address(this), msg.sender, bidIncrement)) revert();
     }
 
-    function checkBid() internal view returns (uint256) {
-        require(auctionAvailable() == true);
-        require(msg.value > 0);
-        require(finalBidAmount[msg.sender] < msg.value);
-        return msg.value - finalBidAmount[msg.sender];
+    function checkBid(uint256 tokenAmount) internal returns (uint256) {
+        require(auctionAvailable() == true, "The auction has ended");
+        require(tokenAmount > 0, "You cannot bid 0 token");
+        require(tokenAddress.balanceOf(msg.sender) >= tokenAmount, "You do not hold enough tokens for this transaction");
+        require(finalBidAmount[msg.sender] < tokenAmount, "This bid must be higher than you last bid");
+        if (!tokenAddress.transferFrom(msg.sender, address(this), tokenAmount)) revert();      
+        return tokenAmount - finalBidAmount[msg.sender];
     }
 
+    //Minting functions
     function safeMint(address to) public onlyOwner {
         _safeMint(to, _nextTokenId++);
     }
 
     function publicMint() public payable {
-        require(auctionAvailable() == false);
+        require(auctionAvailable() == false, "The auction is still ongoing");
         if (finalBidAmount[msg.sender] >= minBid) {
             _safeMint(msg.sender, _nextTokenId++);
         } else {
-            if (!payable(msg.sender).send(finalBidAmount[msg.sender])) revert();
+            if (!tokenAddress.transferFrom(address(this), msg.sender, finalBidAmount[msg.sender])) revert();
         }
     }
 
@@ -70,23 +95,6 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
 
     function setMinBid(uint256 _minBid) external onlyOwner {
         minBid = _minBid;
-    }
-
-    //Other functions
-    function _baseURI() internal view virtual override returns (string memory) {
-        return baseURI;
-    }
-
-    function setBaseURI() public onlyOwner {
-        baseURI = "ipfs://Qma8rLEpTpdKETstRaMFgbmiqNQjNTmi8cGFK9j9NAqYeS/";
-    }
-
-    function _contractURI() internal view virtual returns (string memory) {
-        return contractURI;
-    }
-
-    function setContractURI() public onlyOwner {
-        contractURI = "https://aqua-generous-impala-333.mypinata.cloud/ipfs/QmWaEXC1FSZ6mBciKQ4dJYuHWR8ctgnWQN3dR6trC8XUCL/contract.json";
     }
 
     function tokenURI(uint256 tokenId)

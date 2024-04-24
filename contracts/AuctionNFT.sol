@@ -121,14 +121,13 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
         //Cant mint and claim if the auction still ongoing
         require(auctionAvailable() == false, "The auction is still ongoing");
 
+        //Can only claim and mint once
+        require(existingBidder[msg.sender].claimed == false);
+
         /*If the bidder last bid >= the minium bid that the owner set, the
         bidder will be able to mint and claim the change*/
-        if (
-            existingBidder[msg.sender].lastBid >= finalPrice &&
-            existingBidder[msg.sender].claimed == false
-        ) {
-            safeMint(msg.sender);
-            existingBidder[msg.sender].claimed = true;
+        if (existingBidder[msg.sender].lastBid >= finalPrice) {            
+            safeMint(msg.sender);            
             //Calculate the change between the minium bid and the bidder last bid in order to refund
             uint256 changeTokens = existingBidder[msg.sender].lastBid -
                 finalPrice;
@@ -153,6 +152,7 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
                 block.timestamp
             );
         }
+        existingBidder[msg.sender].claimed = true;
     }
 
     //Transfer funtion

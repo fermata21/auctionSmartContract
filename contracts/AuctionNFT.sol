@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
     struct Bidder {
         uint256 lastBid;
+        uint256 lastBidDate;
         bool claimed;
     }
 
@@ -23,9 +24,11 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
     uint256 public _nextTokenId;
     uint256 public auctionStartDate;
     uint256 public auctionEndDate;
-    uint256 public minBid;
+    uint256 public finalPrice;
     uint256 public tokensCharged;
     uint256 public nextOrdinalNumber;
+    uint256 public minBid;
+    uint256 public maxBid;
 
     string private baseURI;
     string private contractURI;
@@ -56,12 +59,18 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
     }
 
     //Event
-    event submitBidEvent(address bidderAddress, uint256 bidAmount, uint256 bidderordinalNumber);
+    event submitBidEvent(
+        address bidderAddress,
+        uint256 bidAmount,
+        uint256 bidderordinalNumber,
+        uint256 submitDate
+    );
 
     event claimedAndRefunded(
         address bidderAddress,
         uint256 refundedAmount,
-        bool claimedStatus
+        bool claimedStatus,
+        uint256 claimedAndRefundedDate
     );
 
     //Bidding functions
@@ -73,7 +82,8 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
         require(
             existingBidder[msg.sender].lastBid < bidAmount &&
                 tokenAddress.balanceOf(msg.sender) >= bidAmount &&
-                bidAmount > 0,
+                bidAmount >= minBid &&
+                bidAmount <= maxBid,
             "Invalid bidding value!"
         );
 
@@ -81,7 +91,7 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
         //If bidder has existed, change the value of last bid to current bid
         if (existingBidder[msg.sender].lastBid == 0) {
             tokensCharged = bidAmount;
-            Bidder memory bidder = Bidder(bidAmount, false);
+            Bidder memory bidder = Bidder(bidAmount, block.timestamp, false);
             existingBidder[msg.sender] = bidder;
             ordinalNumber[msg.sender] = nextOrdinalNumber++;
         } else {
@@ -89,11 +99,17 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
         this bid to indentify how much tokens will the bidder be charged*/
             tokensCharged = bidAmount - existingBidder[msg.sender].lastBid;
             existingBidder[msg.sender].lastBid = bidAmount;
+            existingBidder[msg.sender].lastBidDate = block.timestamp;
         }
 
         //Transfer tokens from bidder to this contract
         transferTokens(msg.sender, tokensCharged, true);
-        emit submitBidEvent(msg.sender, tokensCharged, ordinalNumber[msg.sender]);
+        emit submitBidEvent(
+            msg.sender,
+            tokensCharged,
+            ordinalNumber[msg.sender],
+            block.timestamp
+        );
     }
 
     //Minting functions
@@ -108,15 +124,21 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
         /*If the bidder last bid >= the minium bid that the owner set, the
         bidder will be able to mint and claim the change*/
         if (
-            existingBidder[msg.sender].lastBid >= minBid &&
+            existingBidder[msg.sender].lastBid >= finalPrice &&
             existingBidder[msg.sender].claimed == false
         ) {
             safeMint(msg.sender);
             existingBidder[msg.sender].claimed = true;
             //Calculate the change between the minium bid and the bidder last bid in order to refund
-            uint256 changeTokens = existingBidder[msg.sender].lastBid - minBid;
+            uint256 changeTokens = existingBidder[msg.sender].lastBid -
+                finalPrice;
             transferTokens(msg.sender, changeTokens, false);
-            emit claimedAndRefunded(msg.sender, changeTokens, true);
+            emit claimedAndRefunded(
+                msg.sender,
+                changeTokens,
+                true,
+                block.timestamp
+            );
         } else {
             //The bidder has lost the auction therefore they will receive all of their money back
             transferTokens(
@@ -127,7 +149,8 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
             emit claimedAndRefunded(
                 msg.sender,
                 existingBidder[msg.sender].lastBid,
-                false
+                false,
+                block.timestamp
             );
         }
     }
@@ -152,8 +175,8 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
     //Additional functions
     function auctionAvailable() public view returns (bool) {
         if (
-            auctionStartDate <= block.timestamp &&
-            auctionEndDate >= block.timestamp
+            auctionStartDate * 1 days <= block.timestamp &&
+            auctionEndDate * 1 days >= block.timestamp
         ) {
             return true;
         } else {
@@ -170,8 +193,13 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
         auctionEndDate = _endDate;
     }
 
-    function setMinBid(uint256 _minBid) external onlyOwner {
+    function setBidRange(uint256 _minBid, uint256 _maxBid) external onlyOwner {
         minBid = _minBid;
+        maxBid = _maxBid;
+    }
+
+    function setFinalPrice(uint256 _finalPrice) external onlyOwner {
+        finalPrice = _finalPrice;
     }
 
     function tokenURI(uint256 tokenId)

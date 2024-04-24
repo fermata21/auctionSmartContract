@@ -16,7 +16,7 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
     using Strings for uint256;
 
     mapping(address => Bidder) existingBidder;
-    mapping(uint256 => address) ordinalNumber;
+    mapping(address => uint256) ordinalNumber;
 
     IERC20 public tokenAddress;
 
@@ -56,7 +56,7 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
     }
 
     //Event
-    event submitBidEvent(address bidderAddress, uint256 bidAmount);
+    event submitBidEvent(address bidderAddress, uint256 bidAmount, uint256 bidderordinalNumber);
 
     event claimedAndRefunded(
         address bidderAddress,
@@ -83,7 +83,7 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
             tokensCharged = bidAmount;
             Bidder memory bidder = Bidder(bidAmount, false);
             existingBidder[msg.sender] = bidder;
-            ordinalNumber[nextOrdinalNumber++] = msg.sender;
+            ordinalNumber[msg.sender] = nextOrdinalNumber++;
         } else {
             /*If bidder already existed, calculate the difference between the last and
         this bid to indentify how much tokens will the bidder be charged*/
@@ -93,7 +93,7 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
 
         //Transfer tokens from bidder to this contract
         transferTokens(msg.sender, tokensCharged, true);
-        emit submitBidEvent(msg.sender, tokensCharged);
+        emit submitBidEvent(msg.sender, tokensCharged, ordinalNumber[msg.sender]);
     }
 
     //Minting functions

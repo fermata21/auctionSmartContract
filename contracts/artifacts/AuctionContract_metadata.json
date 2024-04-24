@@ -262,6 +262,63 @@
 				"type": "event"
 			},
 			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "bidderAddress",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "refundedAmount",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "bool",
+						"name": "claimedStatus",
+						"type": "bool"
+					}
+				],
+				"name": "claimedAndRefunded",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "bidderAddress",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "bidAmount",
+						"type": "uint256"
+					}
+				],
+				"name": "submitBidEvent",
+				"type": "event"
+			},
+			{
+				"inputs": [],
+				"name": "_nextTokenId",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
 				"inputs": [
 					{
 						"internalType": "address",
@@ -287,6 +344,32 @@
 						"internalType": "bool",
 						"name": "",
 						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "auctionEndDate",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "auctionStartDate",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
 					}
 				],
 				"stateMutability": "view",
@@ -356,12 +439,45 @@
 			},
 			{
 				"inputs": [],
+				"name": "minBid",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "mintAndClaim",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
 				"name": "name",
 				"outputs": [
 					{
 						"internalType": "string",
 						"name": "",
 						"type": "string"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "nextOrdinalNumber",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
 					}
 				],
 				"stateMutability": "view",
@@ -394,26 +510,6 @@
 						"internalType": "address",
 						"name": "",
 						"type": "address"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "publicMint",
-				"outputs": [],
-				"stateMutability": "payable",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "rate",
-				"outputs": [
-					{
-						"internalType": "uint256",
-						"name": "",
-						"type": "uint256"
 					}
 				],
 				"stateMutability": "view",
@@ -512,7 +608,12 @@
 				"inputs": [
 					{
 						"internalType": "uint256",
-						"name": "_daysOfAuction",
+						"name": "_startDate",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_endDate",
 						"type": "uint256"
 					}
 				],
@@ -552,7 +653,7 @@
 				"inputs": [
 					{
 						"internalType": "uint256",
-						"name": "tokenAmount",
+						"name": "bidAmount",
 						"type": "uint256"
 					}
 				],
@@ -670,6 +771,19 @@
 			},
 			{
 				"inputs": [],
+				"name": "tokensCharged",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
 				"name": "totalSupply",
 				"outputs": [
 					{
@@ -713,6 +827,29 @@
 					}
 				],
 				"name": "transferOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "bidderAddress",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amountofTokens",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bool",
+						"name": "transferFrom",
+						"type": "bool"
+					}
+				],
+				"name": "transferTokens",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -1028,11 +1165,11 @@
 			]
 		},
 		"contracts/AuctionNFT.sol": {
-			"keccak256": "0x2c35e0ad335bd8c12463988594445a1b83cc505ba42f0bb616178c564c4c6a93",
+			"keccak256": "0x8b8e192cdea6f4037da24661d8b4db0dc2e49d4becbfa86313f20a4ff6fcf9ef",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://4e3f35dc7b42e05ef652dcac2ddda1bc1215263e5e999b801c251a13df32e912",
-				"dweb:/ipfs/QmZRNk2ssMSZWpT3FHnrDNi48hRLS3UBrJVUJhR4dczqUU"
+				"bzz-raw://8053b6be0dc168489da1488fdd2e0ca522f592a0976be7710e82d254780c5ec5",
+				"dweb:/ipfs/QmcLULQNnvDfg87MxqinwFpKnw87a2bP1nsRCH19dhaeya"
 			]
 		}
 	},

@@ -8,18 +8,24 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
+    struct Bidder {
+        uint256 lastBid;
+        bool claimed;
+    }
+
     using Strings for uint256;
 
-    mapping(address => uint256) finalBidAmount;
+    mapping(address => Bidder) existingBidder;
+    mapping(uint256 => address) ordinalNumber;
 
     IERC20 public tokenAddress;
 
-    uint256 private _nextTokenId;
-    uint256 private daysOfAuction;
-    uint256 private auctionStartDay;
-    uint256 private minBid;
-    uint256 private bidIncrement;
-    uint256 public rate = 100 * 10**18;
+    uint256 public _nextTokenId;
+    uint256 public auctionStartDate;
+    uint256 public auctionEndDate;
+    uint256 public minBid;
+    uint256 public tokensCharged;
+    uint256 public nextOrdinalNumber;
 
     string private baseURI;
     string private contractURI;
@@ -49,29 +55,45 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
         contractURI = "https://aqua-generous-impala-333.mypinata.cloud/ipfs/QmWaEXC1FSZ6mBciKQ4dJYuHWR8ctgnWQN3dR6trC8XUCL/contract.json";
     }
 
+    //Event
+    event submitBidEvent(address bidderAddress, uint256 bidAmount);
+
+    event claimedAndRefunded(
+        address bidderAddress,
+        uint256 refundedAmount,
+        bool claimedStatus
+    );
+
     //Bidding functions
-    function submitBid(uint256 tokenAmount) public payable {
+    function submitBid(uint256 bidAmount) public payable {
+        //Check if the auction has ended or not
         require(auctionAvailable() == true, "The auction has ended");
-        require(rate * tokenAmount > 0, "You cannot bid 0 token");
+
+        //Check if the bidder send the valid bid value or not
         require(
-            tokenAddress.balanceOf(msg.sender) >= rate * tokenAmount,
-            "You do not hold enough tokens for this transaction"
+            existingBidder[msg.sender].lastBid < bidAmount &&
+                tokenAddress.balanceOf(msg.sender) >= bidAmount &&
+                bidAmount > 0,
+            "Invalid bidding value!"
         );
-        require(
-            finalBidAmount[msg.sender] < rate * tokenAmount,
-            "This bid must be higher than you last bid"
-        );
-        tokenAddress.approve(address(this), rate * tokenAmount);
-        if (
-            !IERC20(tokenAddress).transferFrom(
-                msg.sender,
-                address(this),
-                rate * tokenAmount
-            )
-        ) revert();
-        finalBidAmount[msg.sender] = rate * tokenAmount;
-        bidIncrement = rate * tokenAmount - finalBidAmount[msg.sender];
-        if (!tokenAddress.transfer(msg.sender, bidIncrement)) revert();
+
+        //After validation, if bidder has not been initialized (lastBid == 0) then create new Bidder
+        //If bidder has existed, change the value of last bid to current bid
+        if (existingBidder[msg.sender].lastBid == 0) {
+            tokensCharged = bidAmount;
+            Bidder memory bidder = Bidder(bidAmount, false);
+            existingBidder[msg.sender] = bidder;
+            ordinalNumber[nextOrdinalNumber++] = msg.sender;
+        } else {
+            /*If bidder already existed, calculate the difference between the last and
+        this bid to indentify how much tokens will the bidder be charged*/
+            tokensCharged = bidAmount - existingBidder[msg.sender].lastBid;
+            existingBidder[msg.sender].lastBid = bidAmount;
+        }
+
+        //Transfer tokens from bidder to this contract
+        transferTokens(msg.sender, tokensCharged, true);
+        emit submitBidEvent(msg.sender, tokensCharged);
     }
 
     //Minting functions
@@ -79,24 +101,60 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
         _safeMint(to, _nextTokenId++);
     }
 
-    function publicMint() public payable {
+    function mintAndClaim() public payable {
+        //Cant mint and claim if the auction still ongoing
         require(auctionAvailable() == false, "The auction is still ongoing");
+
+        /*If the bidder last bid >= the minium bid that the owner set, the
+        bidder will be able to mint and claim the change*/
         if (
-            finalBidAmount[msg.sender] >= minBid &&
-            finalBidAmount[msg.sender] != 0
+            existingBidder[msg.sender].lastBid >= minBid &&
+            existingBidder[msg.sender].claimed == false
         ) {
-            _safeMint(msg.sender, _nextTokenId++);
-            finalBidAmount[msg.sender] = 0;
+            safeMint(msg.sender);
+            existingBidder[msg.sender].claimed = true;
+            //Calculate the change between the minium bid and the bidder last bid in order to refund
+            uint256 changeTokens = existingBidder[msg.sender].lastBid - minBid;
+            transferTokens(msg.sender, changeTokens, false);
+            emit claimedAndRefunded(msg.sender, changeTokens, true);
         } else {
-            if (!tokenAddress.transfer(msg.sender, finalBidAmount[msg.sender]))
-                revert();
-            finalBidAmount[msg.sender] = 0;
+            //The bidder has lost the auction therefore they will receive all of their money back
+            transferTokens(
+                msg.sender,
+                existingBidder[msg.sender].lastBid,
+                false
+            );
+            emit claimedAndRefunded(
+                msg.sender,
+                existingBidder[msg.sender].lastBid,
+                false
+            );
+        }
+    }
+
+    //Transfer funtion
+    function transferTokens(
+        address bidderAddress,
+        uint256 amountofTokens,
+        bool transferFrom
+    ) public {
+        if (transferFrom == true) {
+            tokenAddress.transferFrom(
+                bidderAddress,
+                address(this),
+                amountofTokens
+            );
+        } else {
+            tokenAddress.transfer(bidderAddress, amountofTokens);
         }
     }
 
     //Additional functions
     function auctionAvailable() public view returns (bool) {
-        if (auctionStartDay + daysOfAuction * 1 days >= block.timestamp) {
+        if (
+            auctionStartDate <= block.timestamp &&
+            auctionEndDate >= block.timestamp
+        ) {
             return true;
         } else {
             return false;
@@ -104,13 +162,16 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
     }
 
     //Execute only by Owner
-    function setAuctionTime(uint256 _daysOfAuction) external onlyOwner {
-        daysOfAuction = _daysOfAuction;
-        auctionStartDay = block.timestamp;
+    function setAuctionTime(uint256 _startDate, uint256 _endDate)
+        external
+        onlyOwner
+    {
+        auctionStartDate = _startDate;
+        auctionEndDate = _endDate;
     }
 
     function setMinBid(uint256 _minBid) external onlyOwner {
-        minBid = _minBid * rate;
+        minBid = _minBid;
     }
 
     function tokenURI(uint256 tokenId)
@@ -134,14 +195,13 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
     }
 
     function withdraw() external onlyOwner {
-        IERC20(tokenAddress).transfer(
+        tokenAddress.transfer(
             msg.sender,
             tokenAddress.balanceOf(address(this))
         );
     }
 
     // The following functions are overrides required by Solidity.
-
     function _update(
         address to,
         uint256 tokenId,

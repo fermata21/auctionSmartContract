@@ -195,9 +195,10 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
     }
 
     function withdraw() external onlyOwner {
-        tokenAddress.transfer(
+        transferTokens(
             msg.sender,
-            tokenAddress.balanceOf(address(this))
+            tokenAddress.balanceOf(address(this)),
+            false
         );
     }
 

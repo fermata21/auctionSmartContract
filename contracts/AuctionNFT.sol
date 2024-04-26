@@ -113,6 +113,7 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
             block.timestamp,
             nextOrdinalNumber++
         );
+        //Everytime there are some changes made to the bidding list, the list will be sorted again
         biddersRanking = sort(biddersRanking);
     }
 
@@ -188,7 +189,7 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
         }
     }
 
-    function sortByLastBidAmount(
+    function sortByLastBidAmountAndDate(
         address[] memory arr,
         uint256 left,
         uint256 right
@@ -199,10 +200,20 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
         address pivot = arr[(left + (right - left) / 2)];
         while (i <= j) {
             while (
-                existingBidder[arr[i]].lastBid > existingBidder[pivot].lastBid
+                existingBidder[arr[i]].lastBid >
+                existingBidder[pivot].lastBid ||
+                (existingBidder[arr[i]].lastBid ==
+                    existingBidder[pivot].lastBid &&
+                    existingBidder[arr[i]].lastBidDate <
+                    existingBidder[pivot].lastBidDate)
             ) i++;
             while (
-                existingBidder[pivot].lastBid > existingBidder[arr[j]].lastBid
+                existingBidder[pivot].lastBid >
+                existingBidder[arr[j]].lastBid ||
+                (existingBidder[arr[j]].lastBid ==
+                    existingBidder[pivot].lastBid &&
+                    existingBidder[arr[j]].lastBidDate >
+                    existingBidder[pivot].lastBidDate)
             ) j--;
             if (i <= j) {
                 (arr[i], arr[j]) = (arr[j], arr[i]);
@@ -210,8 +221,8 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
                 if (j > 0) j--;
             }
         }
-        if (left < j) sortByLastBidAmount(arr, left, j);
-        if (i < right) sortByLastBidAmount(arr, i, right);
+        if (left < j) sortByLastBidAmountAndDate(arr, left, j);
+        if (i < right) sortByLastBidAmountAndDate(arr, i, right);
     }
 
     function sort(address[] memory data)
@@ -219,7 +230,7 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
         view
         returns (address[] memory)
     {
-        sortByLastBidAmount(data, uint256(0), uint256(data.length - 1));
+        sortByLastBidAmountAndDate(data, uint256(0), uint256(data.length - 1));
         return data;
     }
 

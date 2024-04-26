@@ -113,6 +113,7 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
             block.timestamp,
             nextOrdinalNumber++
         );
+        biddersRanking = sort(biddersRanking);
     }
 
     //Minting functions
@@ -187,6 +188,41 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
         }
     }
 
+    function sortByLastBidAmount(
+        address[] memory arr,
+        uint256 left,
+        uint256 right
+    ) public view {
+        uint256 i = left;
+        uint256 j = right;
+        if (i == j) return;
+        address pivot = arr[(left + (right - left) / 2)];
+        while (i <= j) {
+            while (
+                existingBidder[arr[i]].lastBid > existingBidder[pivot].lastBid
+            ) i++;
+            while (
+                existingBidder[pivot].lastBid > existingBidder[arr[j]].lastBid
+            ) j--;
+            if (i <= j) {
+                (arr[i], arr[j]) = (arr[j], arr[i]);
+                i++;
+                if (j > 0) j--;
+            }
+        }
+        if (left < j) sortByLastBidAmount(arr, left, j);
+        if (i < right) sortByLastBidAmount(arr, i, right);
+    }
+
+    function sort(address[] memory data)
+        public
+        view
+        returns (address[] memory)
+    {
+        sortByLastBidAmount(data, uint256(0), uint256(data.length - 1));
+        return data;
+    }
+
     //Execute only by Owner
     function setAuctionTime(uint256 _startDate, uint256 _endDate)
         external
@@ -223,6 +259,10 @@ contract AuctionContract is ERC721, ERC721Enumerable, Ownable {
                     )
                 )
                 : "";
+    }
+
+    function showAllBidders() public view returns (address[] memory) {
+        return biddersRanking;
     }
 
     function withdraw() external onlyOwner {
